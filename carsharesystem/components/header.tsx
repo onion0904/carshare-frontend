@@ -4,7 +4,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { ModeToggle } from "@/components/mode-toggle"
 import { usePathname } from "next/navigation"
-import { Calendar, Menu, X } from "lucide-react"
+import { Calendar, Menu, X, Settings } from "lucide-react"
 import { useState } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -49,6 +49,11 @@ export function Header() {
             <ModeToggle />
             {user ? (
               <>
+                <Link href="/settings">
+                  <Button variant="ghost" size="icon">
+                    <Settings className="h-4 w-4" />
+                  </Button>
+                </Link>
                 <Link href="/profile" className="flex items-center space-x-2">
                   <Avatar className="h-8 w-8">
                     <AvatarImage src={user.icon || "/placeholder.svg"} alt={`${user.lastName} ${user.firstName}`} />
@@ -100,6 +105,13 @@ export function Header() {
             ))}
             {user ? (
               <>
+                <Link
+                  href="/settings"
+                  className="block py-2 text-base font-medium text-muted-foreground"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  設定
+                </Link>
                 <Link
                   href="/profile"
                   className="block py-2 text-base font-medium text-muted-foreground"

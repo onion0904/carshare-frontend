@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useAuth } from "@/lib/auth-context"
-import { graphqlClient } from "@/lib/graphql-client"
+import { executeGraphQL } from "@/lib/graphql-client"
 import { gql } from "graphql-request"
 import { CalendarView } from "@/components/calendar-view"
 import { CreateEventDialog } from "@/components/create-event-dialog"
@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { startOfWeek, endOfWeek, format, addWeeks, subWeeks } from "date-fns"
 import { ja } from "date-fns/locale"
 import { ChevronLeft, ChevronRight } from "lucide-react"
+import { USE_MOCK_DATA } from "@/lib/config"
 
 type Group = {
   id: string
@@ -60,6 +61,11 @@ export default function CalendarPage() {
 
   const fetchGroups = async () => {
     try {
+      setError(null)
+      setLoading(true)
+
+      console.log("📅 Calendar: Fetching groups for user:", user?.id)
+
       const query = gql`
         query GetMyGroups {
           myGroups {
@@ -69,14 +75,21 @@ export default function CalendarPage() {
         }
       `
 
-      const data = await graphqlClient.request(query)
-      setGroups(data.myGroups || [])
+      console.log("📅 Calendar: Executing GraphQL query:", query)
 
-      if (data.myGroups && data.myGroups.length > 0) {
-        setSelectedGroupId(data.myGroups[0].id)
+      const data = await executeGraphQL<{ myGroups: Group[] }>(query)
+      console.log("📅 Calendar: Received groups data:", data)
+
+      const groupsData = data.myGroups || []
+      setGroups(groupsData)
+
+      // 最初のグループを自動選択
+      if (groupsData.length > 0 && !selectedGroupId) {
+        setSelectedGroupId(groupsData[0].id)
+        console.log("📅 Calendar: Auto-selected first group:", groupsData[0].id)
       }
     } catch (err: any) {
-      console.error("Failed to fetch groups:", err)
+      console.error("📅 Calendar: Failed to fetch groups:", err)
       setError(err.message || "グループの取得に失敗しました。")
     } finally {
       setLoading(false)
@@ -84,11 +97,17 @@ export default function CalendarPage() {
   }
 
   const fetchEvents = async () => {
-    if (!selectedGroupId) return
+    if (!selectedGroupId) {
+      console.log("📅 Calendar: No group selected, skipping events fetch")
+      return
+    }
 
     try {
       setLoading(true)
+      setError(null)
       const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 })
+
+      console.log("📅 Calendar: Fetching events for group:", selectedGroupId)
 
       const query = gql`
         query GetGroupEvents($input: GroupEventsInput!) {
@@ -115,10 +134,14 @@ export default function CalendarPage() {
         },
       }
 
-      const data = await graphqlClient.request(query, variables)
+      console.log("📅 Calendar: Events query variables:", variables)
+
+      const data = await executeGraphQL<{ groupEvents: Event[] }>(query, variables)
+      console.log("📅 Calendar: Received events data:", data)
+
       setEvents(data.groupEvents || [])
     } catch (err: any) {
-      console.error("Failed to fetch events:", err)
+      console.error("📅 Calendar: Failed to fetch events:", err)
       setError(err.message || "予約の取得に失敗しました。")
     } finally {
       setLoading(false)
@@ -126,6 +149,7 @@ export default function CalendarPage() {
   }
 
   const handleEventCreated = () => {
+    console.log("📅 Calendar: Event created, refreshing events")
     fetchEvents()
   }
 
@@ -189,6 +213,14 @@ export default function CalendarPage() {
         </div>
       </div>
 
+      {USE_MOCK_DATA && (
+        <Alert className="mb-6">
+          <AlertDescription>
+            <strong>モックデータモード:</strong> テスト用データで動作しています
+          </AlertDescription>
+        </Alert>
+      )}
+
       {error && (
         <Alert variant="destructive" className="mb-6">
           <AlertDescription>{error}</AlertDescription>
@@ -202,7 +234,12 @@ export default function CalendarPage() {
             <p className="text-muted-foreground mb-4">
               カレンダーを使用するには、まずグループを作成または参加してください。
             </p>
-            <Button onClick={() => router.push("/group")}>グループページへ</Button>
+            <div className="flex gap-2 justify-center">
+              <Button onClick={() => router.push("/group")}>グループページへ</Button>
+              <Button variant="outline" onClick={fetchGroups}>
+                再読み込み
+              </Button>
+            </div>
           </CardContent>
         </Card>
       ) : (
@@ -228,6 +265,27 @@ export default function CalendarPage() {
 
           <CalendarView weekStart={currentWeekStart} events={events} loading={loading} onRefresh={fetchEvents} />
         </>
+      )}
+
+      {USE_MOCK_DATA && (
+        <div className="mt-8 p-4 bg-muted rounded-lg">
+          <h3 className="text-sm font-medium mb-2">🐛 デバッグ情報</h3>
+          <pre className="text-xs overflow-auto">
+            {JSON.stringify(
+              {
+                groupsCount: groups.length,
+                selectedGroupId,
+                eventsCount: events.length,
+                loading,
+                error,
+                userId: user?.id,
+                userName: user ? `${user.lastName} ${user.firstName}` : null,
+              },
+              null,
+              2,
+            )}
+          </pre>
+        </div>
       )}
     </div>
   )

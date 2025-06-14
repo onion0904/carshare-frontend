@@ -10,10 +10,11 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useAuth } from "@/lib/auth-context"
-import { graphqlClient } from "@/lib/graphql-client"
 import { gql } from "graphql-request"
 import { AvatarSelector } from "@/components/avatar-selector"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { USE_MOCK_DATA } from "@/lib/config"
+import { executeGraphQL } from "@/lib/graphql-client"
 
 // アバターのURLマッピング
 const avatarUrls = {
@@ -58,6 +59,14 @@ export default function ProfilePage() {
     setSuccess(false)
 
     try {
+      console.log("🔧 Profile: Starting profile update", {
+        firstName,
+        lastName,
+        avatarId,
+        currentUser: user,
+        useMockData: USE_MOCK_DATA,
+      })
+
       const mutation = gql`
         mutation UpdateProfile($input: UpdateProfileInput!) {
           updateProfile(input: $input) {
@@ -80,10 +89,24 @@ export default function ProfilePage() {
         },
       }
 
-      await graphqlClient.request(mutation, variables)
+      console.log("🔧 Profile: Executing GraphQL mutation", {
+        mutation: mutation.loc?.source.body.replace(/\s+/g, " ").trim(),
+        variables,
+      })
+
+      const result = await executeGraphQL(mutation, variables)
+      console.log("🔧 Profile: Profile update successful", result)
+
       setSuccess(true)
     } catch (err: any) {
-      console.error("Profile update failed:", err)
+      console.error("🔧 Profile: Profile update failed", {
+        error: err,
+        message: err.message,
+        stack: err.stack,
+        firstName,
+        lastName,
+        avatarId,
+      })
       setError(err.message || "プロフィールの更新に失敗しました。")
     } finally {
       setLoading(false)
@@ -117,6 +140,13 @@ export default function ProfilePage() {
           <CardTitle>{`${user.lastName} ${user.firstName}`}</CardTitle>
           <CardDescription>{user.email}</CardDescription>
         </CardHeader>
+        {USE_MOCK_DATA && (
+          <Alert className="mb-6">
+            <AlertDescription>
+              <strong>モックデータモード:</strong> ユーザーID: {user.id}
+            </AlertDescription>
+          </Alert>
+        )}
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-6">
             {error && (

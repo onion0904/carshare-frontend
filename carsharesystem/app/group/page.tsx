@@ -7,11 +7,12 @@ import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from "@/comp
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAuth } from "@/lib/auth-context"
-import { graphqlClient } from "@/lib/graphql-client"
+import { executeGraphQL } from "@/lib/graphql-client"
 import { gql } from "graphql-request"
 import { GroupList } from "@/components/group-list"
 import { CreateGroupForm } from "@/components/create-group-form"
 import { JoinGroupForm } from "@/components/join-group-form"
+import { USE_MOCK_DATA } from "@/lib/config"
 
 type Group = {
   id: string
@@ -41,6 +42,11 @@ export default function GroupPage() {
 
   const fetchGroups = async () => {
     try {
+      setError(null)
+      setLoading(true)
+
+      console.log("Fetching groups for user:", user?.id)
+
       const query = gql`
         query GetMyGroups {
           myGroups {
@@ -55,7 +61,9 @@ export default function GroupPage() {
         }
       `
 
-      const data = await graphqlClient.request(query)
+      const data = await executeGraphQL<{ myGroups: Group[] }>(query)
+      console.log("Fetched groups data:", data)
+
       setGroups(data.myGroups || [])
     } catch (err: any) {
       console.error("Failed to fetch groups:", err)
@@ -66,10 +74,12 @@ export default function GroupPage() {
   }
 
   const handleGroupCreated = () => {
+    console.log("Group created, refreshing list...")
     fetchGroups()
   }
 
   const handleGroupJoined = () => {
+    console.log("Group joined, refreshing list...")
     fetchGroups()
   }
 
@@ -92,6 +102,14 @@ export default function GroupPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-8">グループ管理</h1>
+
+      {USE_MOCK_DATA && (
+        <Alert className="mb-6">
+          <AlertDescription>
+            <strong>モックデータモード:</strong> テスト用データで動作しています
+          </AlertDescription>
+        </Alert>
+      )}
 
       {error && (
         <Alert variant="destructive" className="mb-6">
@@ -131,6 +149,25 @@ export default function GroupPage() {
           </Tabs>
         </div>
       </div>
+
+      {USE_MOCK_DATA && (
+        <div className="mt-8 p-4 bg-muted rounded-lg">
+          <h3 className="text-sm font-medium mb-2">🐛 デバッグ情報</h3>
+          <pre className="text-xs overflow-auto">
+            {JSON.stringify(
+              {
+                groupsCount: groups.length,
+                loading,
+                error,
+                userId: user?.id,
+                userName: user ? `${user.lastName} ${user.firstName}` : null,
+              },
+              null,
+              2,
+            )}
+          </pre>
+        </div>
+      )}
     </div>
   )
 }

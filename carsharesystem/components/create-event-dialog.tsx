@@ -18,10 +18,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { graphqlClient } from "@/lib/graphql-client"
+import { executeGraphQL } from "@/lib/graphql-client"
 import { gql } from "graphql-request"
 import { Plus } from "lucide-react"
 import { format } from "date-fns"
+import { USE_MOCK_DATA } from "@/lib/config"
 
 interface CreateEventDialogProps {
   groupId: string
@@ -60,11 +61,30 @@ export function CreateEventDialog({ groupId, onEventCreated }: CreateEventDialog
       const startDateTime = `${date}T${startTime}:00`
       const endDateTime = `${date}T${endTime}:00`
 
+      console.log("🎯 CreateEvent: Starting event creation", {
+        groupId,
+        title,
+        startDateTime,
+        endDateTime,
+        isImportant,
+        isCommute,
+        note,
+        useMockData: USE_MOCK_DATA,
+      })
+
       const mutation = gql`
         mutation CreateEvent($input: CreateEventInput!) {
           createEvent(input: $input) {
             id
             title
+            startTime
+            endTime
+            isImportant
+            isCommute
+            note
+            userId
+            userName
+            userAvatarId
           }
         }
       `
@@ -81,12 +101,25 @@ export function CreateEventDialog({ groupId, onEventCreated }: CreateEventDialog
         },
       }
 
-      await graphqlClient.request(mutation, variables)
+      console.log("🎯 CreateEvent: Executing GraphQL mutation", {
+        mutation: mutation.loc?.source.body.replace(/\s+/g, " ").trim(),
+        variables,
+      })
+
+      const result = await executeGraphQL<{ createEvent: any }>(mutation, variables)
+      console.log("🎯 CreateEvent: Event creation successful", result)
+
       setOpen(false)
       resetForm()
       onEventCreated()
     } catch (err: any) {
-      console.error("Event creation failed:", err)
+      console.error("🎯 CreateEvent: Event creation failed", {
+        error: err,
+        message: err.message,
+        stack: err.stack,
+        groupId,
+        title,
+      })
       setError(err.message || "予約の作成に失敗しました。")
     } finally {
       setLoading(false)
@@ -117,6 +150,14 @@ export function CreateEventDialog({ groupId, onEventCreated }: CreateEventDialog
             {error && (
               <Alert variant="destructive">
                 <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
+            {USE_MOCK_DATA && (
+              <Alert>
+                <AlertDescription>
+                  <strong>モックデータモード:</strong> グループID: {groupId}
+                </AlertDescription>
               </Alert>
             )}
 

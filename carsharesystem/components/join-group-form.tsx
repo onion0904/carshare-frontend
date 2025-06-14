@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { CardContent, CardFooter } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { graphqlClient } from "@/lib/graphql-client"
+import { executeGraphQL } from "@/lib/graphql-client"
 import { gql } from "graphql-request"
 
 interface JoinGroupFormProps {
@@ -28,6 +28,8 @@ export function JoinGroupForm({ onGroupJoined }: JoinGroupFormProps) {
     setSuccess(false)
 
     try {
+      console.log("Joining group with invite code:", inviteCode)
+
       const mutation = gql`
         mutation JoinGroup($input: JoinGroupInput!) {
           joinGroup(input: $input) {
@@ -39,14 +41,21 @@ export function JoinGroupForm({ onGroupJoined }: JoinGroupFormProps) {
 
       const variables = {
         input: {
-          inviteCode,
+          inviteCode: inviteCode.toUpperCase(), // 大文字に変換
         },
       }
 
-      await graphqlClient.request(mutation, variables)
+      const result = await executeGraphQL<{ joinGroup: { id: string; name: string } }>(mutation, variables)
+      console.log("Group join result:", result)
+
       setSuccess(true)
       setInviteCode("")
-      onGroupJoined()
+
+      // 少し遅延してからリフレッシュ
+      setTimeout(() => {
+        onGroupJoined()
+        setSuccess(false)
+      }, 1000)
     } catch (err: any) {
       console.error("Group joining failed:", err)
       setError(err.message || "グループへの参加に失敗しました。")
@@ -76,13 +85,14 @@ export function JoinGroupForm({ onGroupJoined }: JoinGroupFormProps) {
             id="invite-code"
             value={inviteCode}
             onChange={(e) => setInviteCode(e.target.value)}
-            placeholder="例: abc123"
+            placeholder="例: ABC123"
             required
           />
+          <p className="text-xs text-muted-foreground">テスト用招待コード: ABC123, DEF456</p>
         </div>
       </CardContent>
       <CardFooter>
-        <Button type="submit" className="w-full" disabled={loading}>
+        <Button type="submit" className="w-full" disabled={loading || !inviteCode.trim()}>
           {loading ? "参加中..." : "グループに参加"}
         </Button>
       </CardFooter>

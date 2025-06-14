@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { CardContent, CardFooter } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { graphqlClient } from "@/lib/graphql-client"
+import { executeGraphQL } from "@/lib/graphql-client"
 import { gql } from "graphql-request"
 
 interface CreateGroupFormProps {
@@ -28,6 +28,8 @@ export function CreateGroupForm({ onGroupCreated }: CreateGroupFormProps) {
     setSuccess(false)
 
     try {
+      console.log("Creating group with name:", groupName)
+
       const mutation = gql`
         mutation CreateGroup($input: CreateGroupInput!) {
           createGroup(input: $input) {
@@ -43,10 +45,17 @@ export function CreateGroupForm({ onGroupCreated }: CreateGroupFormProps) {
         },
       }
 
-      await graphqlClient.request(mutation, variables)
+      const result = await executeGraphQL<{ createGroup: { id: string; name: string } }>(mutation, variables)
+      console.log("Group creation result:", result)
+
       setSuccess(true)
       setGroupName("")
-      onGroupCreated()
+
+      // 少し遅延してからリフレッシュ
+      setTimeout(() => {
+        onGroupCreated()
+        setSuccess(false)
+      }, 1000)
     } catch (err: any) {
       console.error("Group creation failed:", err)
       setError(err.message || "グループの作成に失敗しました。")
@@ -82,7 +91,7 @@ export function CreateGroupForm({ onGroupCreated }: CreateGroupFormProps) {
         </div>
       </CardContent>
       <CardFooter>
-        <Button type="submit" className="w-full" disabled={loading}>
+        <Button type="submit" className="w-full" disabled={loading || !groupName.trim()}>
           {loading ? "作成中..." : "グループを作成"}
         </Button>
       </CardFooter>

@@ -2,6 +2,8 @@
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 import { setAuthToken, removeAuthToken, executeGraphQL } from "@/lib/graphql-client"
+import { USE_MOCK_DATA } from "@/lib/config"
+import { MOCK_USERS } from "@/lib/mock-data"
 import { gql } from "graphql-request"
 
 type User = {
@@ -37,6 +39,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    // モックデータを使用する場合
+    if (USE_MOCK_DATA) {
+      console.log("Using mock data for development")
+      setUser(MOCK_USERS[0]) // MOCK_USERSの最初のユーザーを使用
+      setLoading(false)
+      return
+    }
+
     // Check if user is already logged in
     const token = localStorage.getItem("auth_token")
     if (token) {
@@ -78,6 +88,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string) => {
     setLoading(true)
     setError(null)
+
+    // モックデータを使用する場合
+    if (USE_MOCK_DATA) {
+      console.log("Mock login:", { email, password })
+      setTimeout(() => {
+        setUser(MOCK_USERS[0]) // MOCK_USERSの最初のユーザーを使用
+        setLoading(false)
+      }, 1000)
+      return
+    }
 
     try {
       const mutation = gql`
@@ -123,6 +143,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true)
     setError(null)
 
+    // モックデータを使用する場合
+    if (USE_MOCK_DATA) {
+      console.log("Mock verification code sent to:", email)
+      setTimeout(() => {
+        setLoading(false)
+      }, 1000)
+      return
+    }
+
     try {
       const mutation = gql`
         mutation SendVerificationCode($email: String!) {
@@ -154,6 +183,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   ) => {
     setLoading(true)
     setError(null)
+
+    // モックデータを使用する場合
+    if (USE_MOCK_DATA) {
+      console.log("Mock signup:", { firstName, lastName, email, icon, vcode })
+      setTimeout(() => {
+        const newUser = {
+          id: "new-user-" + Date.now(),
+          firstName,
+          lastName,
+          email,
+          icon,
+        }
+        setUser(newUser)
+        setLoading(false)
+      }, 1000)
+      return
+    }
 
     try {
       const mutation = gql`
